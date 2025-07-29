@@ -281,13 +281,6 @@ export default function PhotoGalleryPage() {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Photo Info */}
-                    {item.photo.alt_text && (
-                      <div className="mt-3 p-4 bg-[#23232a] rounded-lg border border-gray-800">
-                        <p className="text-gray-300 text-sm">{item.photo.alt_text}</p>
-                      </div>
-                    )}
                   </div>
                 )}
                 
