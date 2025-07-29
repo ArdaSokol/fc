@@ -27,6 +27,7 @@ interface PhotoSet {
   title: string;
   description: string;
   cover_image_url: string;
+  music_url?: string;
   created_at: string;
 }
 
@@ -48,16 +49,25 @@ interface TextBubble {
   created_at: string;
 }
 
+interface HomePageSettings {
+  id: string;
+  homepage_music_url?: string;
+  homepage_music_title?: string;
+  updated_at: string;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
-  const [form, setForm] = useState({ title: "", description: "", cover_image_url: "" });
+  const [form, setForm] = useState({ title: "", description: "", cover_image_url: "", music_url: "" });
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const musicFileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [musicUploading, setMusicUploading] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [galleryUploading, setGalleryUploading] = useState<string | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<Record<string, Photo[]>>({});
@@ -70,9 +80,18 @@ export default function AdminDashboard() {
   }>>>({});
   const [altTexts, setAltTexts] = useState<Record<string, string>>({});
   const [newTextBubble, setNewTextBubble] = useState<Record<string, { content: string; size: 'small' | 'medium' | 'large' }>>({});
+  const [homePageSettings, setHomePageSettings] = useState<HomePageSettings | null>(null);
+  const [homePageMusicUploading, setHomePageMusicUploading] = useState(false);
+  const homePageMusicFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const getUser = async () => {
+      // Check if we're in build time
+      if (typeof window === 'undefined') {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const { data } = await supabase.auth.getUser();
         console.log("Current user:", data.user); // Debug için
@@ -83,6 +102,7 @@ export default function AdminDashboard() {
           console.log("User found:", data.user.email); // Debug için
           setUser(data.user as { id: string; email?: string });
           fetchPhotoSets();
+          fetchHomePageSettings();
         }
       } catch (error) {
         console.error("Auth error:", error);
@@ -106,6 +126,48 @@ export default function AdminDashboard() {
         fetchPhotos(set.id);
         fetchTextBubbles(set.id);
       }
+    }
+  };
+
+  const fetchHomePageSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('homepage_settings')
+        .select('*')
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Table doesn't exist - create it
+          console.log('Creating homepage_settings table...');
+          try {
+            const { data: newSettings, error: createError } = await supabase
+              .from('homepage_settings')
+              .insert([{ id: '1', homepage_music_url: '', homepage_music_title: '' }])
+              .select()
+              .single();
+            
+            if (createError) {
+              console.error('Error creating homepage settings:', createError);
+              setError('Ana sayfa ayarları oluşturulurken hata oluştu. Lütfen database tablosunu manuel olarak oluşturun.');
+              return;
+            }
+            setHomePageSettings(newSettings);
+          } catch (createError) {
+            console.error('Error creating homepage settings:', createError);
+            setError('Ana sayfa ayarları oluşturulurken hata oluştu. Lütfen database tablosunu manuel olarak oluşturun.');
+          }
+          return;
+        }
+        throw error;
+      }
+      
+      if (data) {
+        setHomePageSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching homepage settings:', error);
+      setError('Ana sayfa ayarları yüklenirken hata oluştu. Lütfen database tablosunu manuel olarak oluşturun.');
     }
   };
 
@@ -179,6 +241,66 @@ export default function AdminDashboard() {
     setUploading(false);
   };
 
+  const handleMusicFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMusicUploading(true);
+    setError("");
+    const fileExt = file.name.split('.').pop();
+    const fileName = `music-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from("music").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (uploadError) {
+      setError("Müzik yükleme hatası: " + uploadError.message);
+      setMusicUploading(false);
+      return;
+    }
+    const url = supabase.storage.from("music").getPublicUrl(fileName).data.publicUrl;
+    setForm(prev => ({ ...prev, music_url: url }));
+    setMusicUploading(false);
+  };
+
+  const handleHomePageMusicFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHomePageMusicUploading(true);
+    setError("");
+    const fileExt = file.name.split('.').pop();
+    const fileName = `homepage-music-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from("music").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (uploadError) {
+      setError("Ana sayfa müziği yükleme hatası: " + uploadError.message);
+      setHomePageMusicUploading(false);
+      return;
+    }
+    const url = supabase.storage.from("music").getPublicUrl(fileName).data.publicUrl;
+    
+    // Update homepage settings
+    try {
+      const { error: updateError } = await supabase
+        .from('homepage_settings')
+        .upsert([{ 
+          id: homePageSettings?.id || '1', 
+          homepage_music_url: url,
+          homepage_music_title: file.name.replace(/\.[^/.]+$/, "") // Remove file extension
+        }]);
+      
+      if (updateError) throw updateError;
+      
+      setHomePageSettings(prev => prev ? { ...prev, homepage_music_url: url, homepage_music_title: file.name.replace(/\.[^/.]+$/, "") } : null);
+          } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+        setError("Ana sayfa müziği güncelleme hatası: " + errorMessage);
+      }
+    
+    setHomePageMusicUploading(false);
+  };
+
   const handleAddSet = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -187,7 +309,7 @@ export default function AdminDashboard() {
       { ...form }
     ]);
     if (error) setError(error.message);
-    setForm({ title: "", description: "", cover_image_url: "" });
+    setForm({ title: "", description: "", cover_image_url: "", music_url: "" });
     setFormLoading(false);
     fetchPhotoSets();
   };
@@ -280,6 +402,29 @@ export default function AdminDashboard() {
       setError("Güncelleme hatası: " + updateError.message);
     }
     setUploading(false);
+    fetchPhotoSets();
+  };
+
+  const handleUpdateMusic = async (setId: string, file: File) => {
+    setMusicUploading(true);
+    setError("");
+    const fileExt = file.name.split('.').pop();
+    const fileName = `music-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from("music").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (uploadError) {
+      setError("Müzik yükleme hatası: " + uploadError.message);
+      setMusicUploading(false);
+      return;
+    }
+    const url = supabase.storage.from("music").getPublicUrl(fileName).data.publicUrl;
+    const { error: updateError } = await supabase.from("photosets").update({ music_url: url }).eq("id", setId);
+    if (updateError) {
+      setError("Müzik güncelleme hatası: " + updateError.message);
+    }
+    setMusicUploading(false);
     fetchPhotoSets();
   };
 
@@ -423,6 +568,23 @@ export default function AdminDashboard() {
             <img src={coverPreview} alt="Kapak önizleme" className="mt-2 w-32 h-32 object-cover rounded border border-gray-700" />
           )}
         </div>
+        <div>
+          <label className="block mb-1 font-medium text-gray-100">Müzik Dosyası (Opsiyonel)</label>
+          <input
+            type="file"
+            accept="audio/*"
+            ref={musicFileInputRef}
+            onChange={handleMusicFileChange}
+            className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--accent)] file:text-[var(--foreground)] hover:file:opacity-90 bg-[#1a1a1a] border border-gray-700 rounded"
+            disabled={musicUploading}
+          />
+          {musicUploading && <div className="text-xs text-gray-300 mt-1">Müzik yükleniyor...</div>}
+          {form.music_url && (
+            <div className="mt-2 p-2 bg-green-900/20 border border-green-700 rounded text-green-300 text-xs">
+              ✓ Müzik dosyası yüklendi
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           disabled={formLoading || uploading}
@@ -432,6 +594,32 @@ export default function AdminDashboard() {
         </button>
         {error && <div className="text-red-400 text-sm text-center">{error}</div>}
       </form>
+
+      {/* Ana Sayfa Müziği Ayarları */}
+      <div className="w-full max-w-md bg-[#23232a] rounded-xl shadow p-6 flex flex-col gap-4 border border-gray-800">
+        <h2 className="text-xl font-semibold mb-2 text-white">Ana Sayfa Müziği Ayarları</h2>
+        <div>
+          <label className="block mb-1 font-medium text-gray-100">Ana Sayfa Müziği (Opsiyonel)</label>
+          <input
+            type="file"
+            accept="audio/*"
+            ref={homePageMusicFileInputRef}
+            onChange={handleHomePageMusicFileChange}
+            className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--accent)] file:text-[var(--foreground)] hover:file:opacity-90 bg-[#1a1a1a] border border-gray-700 rounded"
+            disabled={homePageMusicUploading}
+          />
+          {homePageMusicUploading && <div className="text-xs text-gray-300 mt-1">Ana sayfa müziği yükleniyor...</div>}
+          {homePageSettings?.homepage_music_url && (
+            <div className="mt-2 p-2 bg-green-900/20 border border-green-700 rounded text-green-300 text-xs">
+              ✓ Ana sayfa müziği yüklendi: {homePageSettings.homepage_music_title}
+            </div>
+          )}
+          <div className="mt-2 text-xs text-gray-400">
+            Ana sayfada otomatik olarak çalacak müzik dosyası. Ziyaretçiler ana sayfaya girdiğinde bu müzik otomatik olarak başlayacak.
+          </div>
+        </div>
+      </div>
+
       <div className="w-full max-w-2xl">
         <h2 className="text-xl font-semibold mb-4 text-white">Fotoğraf Setleri</h2>
         <ul className="flex flex-col gap-6">
@@ -447,6 +635,9 @@ export default function AdminDashboard() {
                   <div className="font-bold text-lg text-white">{set.title}</div>
                   <div className="text-gray-100 text-sm line-clamp-2">{set.description}</div>
                   <div className="text-xs text-gray-300 mt-1">{new Date(set.created_at).toLocaleString()}</div>
+                  {set.music_url && (
+                    <div className="text-xs text-green-400 mt-1">🎵 Müzik dosyası mevcut</div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -465,6 +656,24 @@ export default function AdminDashboard() {
                     title="Kapak Görselini Güncelle"
                   >
                     Kapak Güncelle
+                  </label>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUpdateMusic(set.id, file);
+                    }}
+                    className="hidden"
+                    id={`music-${set.id}`}
+                    disabled={musicUploading}
+                  />
+                  <label
+                    htmlFor={`music-${set.id}`}
+                    className="text-xs px-3 py-1 rounded bg-green-600 hover:bg-green-700 border border-green-800 text-white cursor-pointer"
+                    title="Müzik Dosyası Ekle/Güncelle"
+                  >
+                    {musicUploading ? "Yükleniyor..." : "Müzik Ekle"}
                   </label>
                   <button
                     onClick={() => handleDeleteSet(set.id)}

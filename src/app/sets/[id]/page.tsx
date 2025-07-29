@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMusic } from "@/contexts/MusicContext";
 
 interface Photo {
   id: string;
@@ -19,6 +20,7 @@ interface PhotoSet {
   title: string;
   description: string;
   cover_image_url: string;
+  music_url?: string;
   created_at: string;
 }
 
@@ -42,6 +44,7 @@ interface GalleryItem {
 export default function PhotoGalleryPage() {
   const params = useParams();
   const router = useRouter();
+  const { setCurrentTrack, play, stop, forceStop } = useMusic();
   const [photoSet, setPhotoSet] = useState<PhotoSet | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [textBubbles, setTextBubbles] = useState<TextBubble[]>([]);
@@ -54,6 +57,43 @@ export default function PhotoGalleryPage() {
       fetchPhotoSetAndPhotos(params.id as string);
     }
   }, [params.id]);
+
+  // Handle music auto-play when photo set changes
+  useEffect(() => {
+    if (photoSet) {
+      if (photoSet.music_url) {
+        // Set the track first
+        setCurrentTrack({
+          id: photoSet.id,
+          title: photoSet.title,
+          audioUrl: photoSet.music_url
+        });
+        
+        // Wait a bit before playing to ensure audio is loaded
+        setTimeout(() => {
+          play();
+        }, 100);
+      } else {
+        stop();
+      }
+    }
+
+    // Cleanup when component unmounts or photo set changes
+    return () => {
+      // Only stop if we're leaving this specific photo set
+      if (photoSet && photoSet.music_url) {
+        stop();
+      }
+    };
+  }, [photoSet]); // Remove music functions from dependencies
+
+  // Additional cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      // Force stop music when leaving the page
+      forceStop();
+    };
+  }, []); // Remove forceStop from dependencies
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -2,24 +2,55 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useMusic } from "@/contexts/MusicContext";
 
 interface PhotoSet {
   id: string;
   title: string;
   description: string;
   cover_image_url: string;
+  music_url?: string;
   created_at: string;
 }
 
+interface HomePageSettings {
+  id: string;
+  homepage_music_url?: string;
+  homepage_music_title?: string;
+  updated_at: string;
+}
+
 export default function HomePage() {
+  const router = useRouter();
+  const { stop, forceStop, setCurrentTrack, play } = useMusic();
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
+  const [homePageSettings, setHomePageSettings] = useState<HomePageSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchPhotoSets();
-  }, []);
+    fetchHomePageSettings();
+  }, []); // Remove all dependencies to prevent infinite loop
+
+  // Handle homepage music - only when settings change
+  useEffect(() => {
+    if (homePageSettings?.homepage_music_url) {
+      // Only start music if we don't already have a track playing
+      setCurrentTrack({
+        id: 'homepage',
+        title: homePageSettings.homepage_music_title || 'Ana Sayfa Müziği',
+        audioUrl: homePageSettings.homepage_music_url
+      });
+      
+      // Start playing after a short delay
+      setTimeout(() => {
+        play();
+      }, 1000);
+    }
+  }, [homePageSettings?.homepage_music_url]); // Only depend on the URL, not the entire object
 
   const fetchPhotoSets = async () => {
     const { data, error } = await supabase
@@ -30,6 +61,31 @@ export default function HomePage() {
       setPhotoSets(data as PhotoSet[]);
     }
     setLoading(false);
+  };
+
+  const fetchHomePageSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('homepage_settings')
+        .select('*')
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Table doesn't exist or no rows - this is normal for new setup
+          console.log('Homepage settings table not found or empty - this is normal for new setup');
+          return;
+        }
+        console.error('Error fetching homepage settings:', error);
+        return;
+      }
+      
+      if (data) {
+        setHomePageSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching homepage settings:', error);
+    }
   };
 
   if (loading) {
