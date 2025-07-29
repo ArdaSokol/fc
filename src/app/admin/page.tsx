@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Fragment } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Link from "next/link";
 import {
@@ -21,10 +20,6 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import {
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import SortableItem from '@/components/SortableItem';
 
 interface PhotoSet {
@@ -56,7 +51,7 @@ interface TextBubble {
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
   const [form, setForm] = useState({ title: "", description: "", cover_image_url: "" });
   const [formLoading, setFormLoading] = useState(false);
@@ -67,7 +62,12 @@ export default function AdminDashboard() {
   const [galleryUploading, setGalleryUploading] = useState<string | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<Record<string, Photo[]>>({});
   const [textBubbles, setTextBubbles] = useState<Record<string, TextBubble[]>>({});
-  const [combinedItems, setCombinedItems] = useState<Record<string, any[]>>({});
+  const [combinedItems, setCombinedItems] = useState<Record<string, Array<{
+    id: string;
+    type: 'photo' | 'textBubble';
+    data: Photo | TextBubble;
+    order: number;
+  }>>>({});
   const [altTexts, setAltTexts] = useState<Record<string, string>>({});
   const [newTextBubble, setNewTextBubble] = useState<Record<string, { content: string; size: 'small' | 'medium' | 'large' }>>({});
 
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
         router.replace("/admin/login");
       } else {
         console.log("User found:", data.user.email); // Debug için
-        setUser(data.user);
+        setUser(data.user as { id: string; email?: string });
         fetchPhotoSets();
       }
       setLoading(false);
@@ -116,7 +116,12 @@ export default function AdminDashboard() {
     const photos = galleryPhotos[setId] || [];
     const bubbles = textBubbles[setId] || [];
     
-    const items: any[] = [];
+    const items: Array<{
+      id: string;
+      type: 'photo' | 'textBubble';
+      data: Photo | TextBubble;
+      order: number;
+    }> = [];
     
     // Add photos
     photos.forEach(photo => {
@@ -224,11 +229,6 @@ export default function AdminDashboard() {
     await fetchSetContent(setId);
   };
 
-  // Handle alt text input
-  const handleAltTextChange = (fileName: string, value: string) => {
-    setAltTexts((prev) => ({ ...prev, [fileName]: value }));
-  };
-
   // Add delete photo handler
   const handleDeletePhoto = async (photoId: string, setId: string, imageUrl: string) => {
     // Remove from storage
@@ -241,27 +241,7 @@ export default function AdminDashboard() {
     await fetchSetContent(setId);
   };
 
-  // Add move photo up/down handlers
-  const handleMovePhoto = async (setId: string, photoId: string, direction: "up" | "down") => {
-    // Fetch current photos
-    const photos = galleryPhotos[setId] || [];
-    const idx = photos.findIndex(p => p.id === photoId);
-    if (idx === -1) return;
-    let newPhotos = [...photos];
-    if (direction === "up" && idx > 0) {
-      [newPhotos[idx - 1], newPhotos[idx]] = [newPhotos[idx], newPhotos[idx - 1]];
-    } else if (direction === "down" && idx < photos.length - 1) {
-      [newPhotos[idx + 1], newPhotos[idx]] = [newPhotos[idx], newPhotos[idx + 1]];
-    } else {
-      return;
-    }
-    // Update order in DB (naive: update created_at to force order)
-    const now = new Date();
-    for (let i = 0; i < newPhotos.length; i++) {
-      await supabase.from("photos").update({ created_at: new Date(now.getTime() + i) }).eq("id", newPhotos[i].id);
-    }
-    fetchPhotos(setId);
-  };
+
 
   // Add delete set handler
   const handleDeleteSet = async (setId: string) => {
@@ -519,35 +499,35 @@ export default function AdminDashboard() {
                             <SortableItem id={item.id} className="relative">
                               {item.type === 'photo' ? (
                                 <div className="aspect-square bg-[#1a1a1a] rounded-lg border border-gray-700 hover:border-[var(--accent)] transition-all duration-300 overflow-hidden">
-                                  <img
-                                    src={item.data.image_url}
-                                    alt={item.data.alt_text || set.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                  />
-                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-end">
-                                    <div className="p-3 w-full transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                                      <div className="text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 line-clamp-2" title={item.data.alt_text}>
-                                        {item.data.alt_text || 'Fotoğraf'}
-                                      </div>
-                                    </div>
-                                  </div>
+                                                        <img
+                        src={(item.data as Photo).image_url}
+                        alt={(item.data as Photo).alt_text || set.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-end">
+                        <div className="p-3 w-full transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                          <div className="text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 line-clamp-2" title={(item.data as Photo).alt_text}>
+                            {(item.data as Photo).alt_text || 'Fotoğraf'}
+                          </div>
+                        </div>
+                      </div>
                                 </div>
                               ) : (
                                 <div className="aspect-square bg-[#1a1a1a] rounded-lg border border-gray-700 hover:border-[var(--accent)] transition-all duration-300 flex flex-col items-center justify-center p-4">
                                   <div className="w-12 h-12 rounded-full bg-[var(--accent)] flex items-center justify-center mb-3">
                                     <span className="text-[var(--foreground)] text-lg font-bold">💬</span>
                                   </div>
-                                  <div className="text-center">
-                                    <div className="text-sm text-gray-100 line-clamp-3 leading-relaxed" title={item.data.content}>
-                                      {item.data.content}
-                                    </div>
-                                    <div className="text-xs text-gray-400 mt-2">
-                                      Metin Balonu • {
-                                        (item.data.size || 'medium') === 'small' ? 'Küçük' :
-                                        (item.data.size || 'medium') === 'medium' ? 'Orta' : 'Büyük'
-                                      }
-                                    </div>
-                                  </div>
+                                                        <div className="text-center">
+                        <div className="text-sm text-gray-100 line-clamp-3 leading-relaxed" title={(item.data as TextBubble).content}>
+                          {(item.data as TextBubble).content}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-2">
+                          Metin Balonu • {
+                            ((item.data as TextBubble).size || 'medium') === 'small' ? 'Küçük' :
+                            ((item.data as TextBubble).size || 'medium') === 'medium' ? 'Orta' : 'Büyük'
+                          }
+                        </div>
+                      </div>
                                 </div>
                               )}
                             </SortableItem>
@@ -559,7 +539,7 @@ export default function AdminDashboard() {
                                 className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
                                 onClick={() => {
                                   if (item.type === 'photo') {
-                                    handleDeletePhoto(item.id, set.id, item.data.image_url);
+                                    handleDeletePhoto(item.id, set.id, (item.data as Photo).image_url);
                                   } else {
                                     handleDeleteTextBubble(item.id, set.id);
                                   }

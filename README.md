@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📸 Fotoğraf Portföy Sitesi
 
-## Getting Started
+Modern, minimalistik ve responsive fotoğraf portföy websitesi. Next.js, TailwindCSS ve Supabase kullanılarak geliştirilmiştir.
 
-First, run the development server:
+## ✨ Özellikler
 
+- **📱 Responsive Tasarım:** Mobil ve desktop uyumlu
+- **🎨 Modern UI:** Koyu tema, minimalistik tasarım
+- **🔐 Admin Paneli:** Fotoğrafçı için özel yönetim paneli
+- **📂 Fotoğraf Setleri:** Organize fotoğraf koleksiyonları
+- **💬 Metin Balonları:** Fotoğraflar arasına yerleştirilebilir metinler
+- **🖱️ Drag & Drop:** Sürükle-bırak ile sıralama
+- **🌙 Tema Desteği:** Koyu/açık tema geçişi
+- **🔍 Modal Galeri:** Tam ekran fotoğraf görüntüleme
+
+## 🚀 Teknolojiler
+
+- **Frontend:** Next.js 15, React, TypeScript
+- **Styling:** TailwindCSS
+- **Animations:** Framer Motion
+- **Backend:** Supabase (Database, Auth, Storage)
+- **Drag & Drop:** @dnd-kit
+
+## 📦 Kurulum
+
+1. **Repository'yi klonla:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/KULLANICI_ADIN/REPO_ADI.git
+cd photo-portfolio
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Bağımlılıkları yükle:**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Environment variables oluştur:**
+```bash
+# .env.local dosyası oluştur
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Development server'ı başlat:**
+```bash
+npm run dev
+```
 
-## Learn More
+## 🗄️ Veritabanı Kurulumu
 
-To learn more about Next.js, take a look at the following resources:
+Supabase'de aşağıdaki tabloları oluştur:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### `photosets` tablosu:
+```sql
+CREATE TABLE photosets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  cover_image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### `photos` tablosu:
+```sql
+CREATE TABLE photos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  set_id UUID REFERENCES photosets(id) ON DELETE CASCADE,
+  image_url TEXT,
+  alt_text TEXT,
+  "order" INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-## Deploy on Vercel
+### `text_bubbles` tablosu:
+```sql
+CREATE TABLE text_bubbles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  set_id UUID REFERENCES photosets(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  "order" INTEGER DEFAULT 0,
+  size TEXT DEFAULT 'medium',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🌐 Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Vercel (Önerilen):
+1. [vercel.com](https://vercel.com) adresine git
+2. GitHub hesabınla giriş yap
+3. "New Project" > Repository'ni seç
+4. Environment variables'ları ekle
+5. Deploy et!
+
+### Netlify:
+1. [netlify.com](https://netlify.com) adresine git
+2. "New site from Git" > Repository'ni seç
+3. Environment variables'ları ekle
+4. Deploy et!
+
+## 📱 Kullanım
+
+### Admin Paneli:
+- `/admin` - Yönetici girişi
+- Fotoğraf setleri oluştur
+- Fotoğraf ve metin balonu ekle
+- Sürükle-bırak ile sırala
+
+### Public Site:
+- `/` - Ana sayfa (fotoğraf setleri)
+- `/sets/[id]` - Galeri görüntüleme
+- `/about` - Hakkında sayfası
+
+## 🎨 Özelleştirme
+
+- **Renkler:** `src/app/globals.css` dosyasında CSS variables
+- **Tema:** `src/components/ThemeToggle.tsx`
+- **Layout:** `src/app/layout.tsx`
+
+## 📄 Lisans
+
+MIT License
+
+## 🤝 Katkıda Bulunma
+
+1. Fork et
+2. Feature branch oluştur (`git checkout -b feature/amazing-feature`)
+3. Commit et (`git commit -m 'Add amazing feature'`)
+4. Push et (`git push origin feature/amazing-feature`)
+5. Pull Request oluştur
+
+---
+
+**Geliştirici:** [Adın]
+**Versiyon:** 1.0.0
