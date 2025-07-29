@@ -73,15 +73,20 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      console.log("Current user:", data.user); // Debug için
-      if (!data.user) {
-        console.log("No user found, redirecting to login"); // Debug için
+      try {
+        const { data } = await supabase.auth.getUser();
+        console.log("Current user:", data.user); // Debug için
+        if (!data.user) {
+          console.log("No user found, redirecting to login"); // Debug için
+          router.replace("/admin/login");
+        } else {
+          console.log("User found:", data.user.email); // Debug için
+          setUser(data.user as { id: string; email?: string });
+          fetchPhotoSets();
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
         router.replace("/admin/login");
-      } else {
-        console.log("User found:", data.user.email); // Debug için
-        setUser(data.user as { id: string; email?: string });
-        fetchPhotoSets();
       }
       setLoading(false);
     };
