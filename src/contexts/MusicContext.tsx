@@ -41,10 +41,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [volume]);
 
   const play = useCallback(() => {
-    // Add a small delay to ensure audio is ready
+    // Add a longer delay to ensure audio is ready
     setTimeout(() => {
       setIsPlaying(true);
-    }, 50);
+    }, 100);
   }, []);
 
   const pause = useCallback(() => {

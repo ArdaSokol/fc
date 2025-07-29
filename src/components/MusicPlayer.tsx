@@ -76,10 +76,17 @@ export default function MusicPlayer({
           audioRef.current?.removeEventListener('canplay', handleCanPlay);
         };
         
+        const handleLoadedData = () => {
+          audioRef.current?.play().catch(console.error);
+          audioRef.current?.removeEventListener('loadeddata', handleLoadedData);
+        };
+        
         audioRef.current.addEventListener('canplay', handleCanPlay);
+        audioRef.current.addEventListener('loadeddata', handleLoadedData);
         
         return () => {
           audioRef.current?.removeEventListener('canplay', handleCanPlay);
+          audioRef.current?.removeEventListener('loadeddata', handleLoadedData);
         };
       }
     }

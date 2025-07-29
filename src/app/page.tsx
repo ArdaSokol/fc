@@ -29,33 +29,20 @@ export default function HomePage() {
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
   const [homePageSettings, setHomePageSettings] = useState<HomePageSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [musicStarted, setMusicStarted] = useState(false);
 
   useEffect(() => {
     fetchPhotoSets();
     fetchHomePageSettings();
   }, []); // Remove all dependencies to prevent infinite loop
 
-  // Handle homepage music - only when settings change
-  useEffect(() => {
-    if (homePageSettings?.homepage_music_url) {
-      // Only start music if we don't already have a track playing
-      setCurrentTrack({
-        id: 'homepage',
-        title: homePageSettings.homepage_music_title || 'Ana Sayfa Müziği',
-        audioUrl: homePageSettings.homepage_music_url
-      });
-      
-      // Start playing after a short delay
-      setTimeout(() => {
-        play();
-      }, 1000);
-    }
-  }, [homePageSettings?.homepage_music_url]); // Only depend on the URL, not the entire object
+
 
   const fetchPhotoSets = async () => {
     const { data, error } = await supabase
       .from("photosets")
       .select("*")
+      .order("order", { ascending: true })
       .order("created_at", { ascending: false });
     if (!error && data) {
       setPhotoSets(data as PhotoSet[]);
@@ -98,6 +85,28 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      {/* Hidden audio element for homepage music */}
+      {homePageSettings?.homepage_music_url && (
+        <audio
+          id="homepage-audio"
+          src={homePageSettings.homepage_music_url}
+          preload="auto"
+          onCanPlay={() => {
+            if (!musicStarted && homePageSettings.homepage_music_url) {
+              setCurrentTrack({
+                id: 'homepage',
+                title: homePageSettings.homepage_music_title || 'Ana Sayfa Müziği',
+                audioUrl: homePageSettings.homepage_music_url
+              });
+              setTimeout(() => {
+                play();
+                setMusicStarted(true);
+              }, 500);
+            }
+          }}
+        />
+      )}
+      
       {/* Navigation */}
       <nav className="bg-[#23232a]/90 backdrop-blur-sm border-b border-gray-800 p-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">

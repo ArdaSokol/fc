@@ -28,6 +28,7 @@ interface PhotoSet {
   description: string;
   cover_image_url: string;
   music_url?: string;
+  order?: number;
   created_at: string;
 }
 
@@ -118,6 +119,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from("photosets")
       .select("*")
+      .order("order", { ascending: true })
       .order("created_at", { ascending: false });
     if (!error && data) {
       setPhotoSets(data as PhotoSet[]);
@@ -508,6 +510,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handlePhotoSetDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = photoSets.findIndex(set => set.id === active.id);
+    const newIndex = photoSets.findIndex(set => set.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newPhotoSets = arrayMove(photoSets, oldIndex, newIndex);
+    setPhotoSets(newPhotoSets);
+
+    // Update order in database for all photo sets
+    for (let i = 0; i < newPhotoSets.length; i++) {
+      const set = newPhotoSets[i];
+      await supabase.from("photosets").update({ order: i }).eq("id", set.id);
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
   }
@@ -622,9 +643,19 @@ export default function AdminDashboard() {
 
       <div className="w-full max-w-2xl">
         <h2 className="text-xl font-semibold mb-4 text-white">Fotoğraf Setleri</h2>
-        <ul className="flex flex-col gap-6">
-          {photoSets.map(set => (
-            <li key={set.id} className="flex flex-col gap-2 bg-[#23232a] rounded-2xl p-6 border border-gray-800">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handlePhotoSetDragEnd}
+        >
+          <SortableContext
+            items={photoSets.map(set => set.id)}
+            strategy={verticalListSortingStrategy}
+          >
+                        <ul className="flex flex-col gap-6">
+              {photoSets.map(set => (
+                <SortableItem key={set.id} id={set.id}>
+                  <li className="flex flex-col gap-2 bg-[#23232a] rounded-2xl p-6 border border-gray-800">
               <div className="flex items-center gap-4">
                 {set.cover_image_url ? (
                   <img src={set.cover_image_url} alt={set.title} className="w-20 h-20 object-cover rounded-md border shadow" />
@@ -831,9 +862,12 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
-            </li>
+                </li>
+              </SortableItem>
           ))}
         </ul>
+          </SortableContext>
+        </DndContext>
       </div>
     </div>
   );
