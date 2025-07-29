@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/supabaseClient";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useMusic } from "@/contexts/MusicContext";
@@ -24,8 +24,7 @@ interface HomePageSettings {
 }
 
 export default function HomePage() {
-  const router = useRouter();
-  const { stop, forceStop, setCurrentTrack, play } = useMusic();
+  const { setCurrentTrack, play } = useMusic();
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
   const [homePageSettings, setHomePageSettings] = useState<HomePageSettings | null>(null);
   const [loading, setLoading] = useState(true);

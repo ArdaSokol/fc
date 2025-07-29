@@ -62,7 +62,7 @@ interface HomePageSettings {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoSets, setPhotoSets] = useState<PhotoSet[]>([]);
   const [combinedItems, setCombinedItems] = useState<{[key: string]: Array<{id: string, type: 'photo' | 'textBubble', data: Photo | TextBubble}>}>({});
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
 
   const fetchHomePageSettings = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: _data, error } = await supabase
         .from('homepage_settings')
         .select('*')
         .single();
@@ -152,8 +152,8 @@ export default function AdminDashboard() {
         throw error;
       }
       
-      if (data) {
-        setHomePageSettings(data);
+      if (_data) {
+        setHomePageSettings(_data);
       }
     } catch (error) {
       console.error('Error fetching homepage settings:', error);
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const { data, error } = await supabase.storage
+      const { data: _data, error } = await supabase.storage
         .from('covers')
         .upload(fileName, file);
 
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const { data, error } = await supabase.storage
+      const { data: _data, error } = await supabase.storage
         .from('music')
         .upload(fileName, file);
 
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const { data, error } = await supabase.storage
+      const { data: _data, error } = await supabase.storage
         .from('music')
         .upload(fileName, file);
 

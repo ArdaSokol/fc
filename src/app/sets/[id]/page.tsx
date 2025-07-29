@@ -191,13 +191,7 @@ export default function PhotoGalleryPage() {
     }
   };
 
-  const handleSwipe = (direction: "left" | "right") => {
-    if (direction === "left") {
-      goToNext();
-    } else {
-      goToPrevious();
-    }
-  };
+
 
   if (loading) {
     return (
